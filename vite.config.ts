@@ -19,14 +19,8 @@ export default defineConfig(({ mode }) => {
           theme_color: '#ffffff',
           icons: [
             {
-              src: 'https://picsum.photos/seed/cute-chibi-dino-jp/192/192',
-              sizes: '192x192',
-              type: 'image/png',
-              purpose: 'any maskable'
-            },
-            {
-              src: 'https://picsum.photos/seed/cute-chibi-dino-jp/512/512',
-              sizes: '512x512',
+              src: 'input_file_0.png',
+              sizes: '1024x1024',
               type: 'image/png',
               purpose: 'any maskable'
             }
