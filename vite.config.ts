@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
           theme_color: '#ffffff',
           icons: [
             {
-              src: 'input_file_0.png',
+              src: 'pwa-icon.png',
               sizes: '1024x1024',
               type: 'image/png',
               purpose: 'any maskable'
