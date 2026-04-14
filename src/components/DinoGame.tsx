@@ -146,10 +146,10 @@ export const DinoGame: React.FC = () => {
   }, [isInvincible]);
 
   const spawnObstacle = () => {
-    const type = 'cactus'; // Removed birds as requested ("no objects above")
-    const height = 35 + Math.random() * 20;
-    const width = 20 + Math.random() * 10;
-    const y = GROUND_Y - height;
+    const type = Math.random() > 0.7 ? 'bird' : 'cactus';
+    const height = type === 'cactus' ? 35 + Math.random() * 20 : 30;
+    const width = type === 'cactus' ? 20 + Math.random() * 10 : 40;
+    const y = type === 'cactus' ? GROUND_Y - height : GROUND_Y - height - 30 - Math.random() * 30;
 
     obstacles.current.push({
       x: CANVAS_WIDTH,
@@ -396,16 +396,20 @@ export const DinoGame: React.FC = () => {
         return;
       }
 
-      // On mobile, a quick touch is a jump, a long touch is a duck
-      // For simplicity, we'll make any touch start a jump if not jumping
-      // and a duck if we hold it (handled in touchEnd)
-      if (!isJumping.current) {
-        isJumping.current = true;
-        dinoVelocityY.current = JUMP_FORCE;
-        playSound('jump');
-      } else {
-        // If already jumping, allow ducking mid-air to fall faster
+      // Mobile controls:
+      // 1. If touching the bottom half of the screen -> Duck
+      // 2. If touching the top half of the screen -> Jump
+      const touchY = e.touches[0].clientY;
+      const screenHeight = window.innerHeight;
+
+      if (touchY > screenHeight / 2) {
         isDucking.current = true;
+      } else {
+        if (!isJumping.current) {
+          isJumping.current = true;
+          dinoVelocityY.current = JUMP_FORCE;
+          playSound('jump');
+        }
       }
     };
 
@@ -494,16 +498,16 @@ export const DinoGame: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-20"
+              className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-20 p-4"
             >
-              <h1 className="text-5xl font-black text-stone-900 mb-2 tracking-tighter">DINO RUNNER</h1>
-              <p className="text-stone-500 mb-8 font-medium">Press SPACE or UP to start</p>
+              <h1 className="text-4xl sm:text-5xl font-black text-stone-900 mb-1 tracking-tighter">DINO RUNNER</h1>
+              <p className="text-stone-500 mb-4 sm:mb-8 font-medium text-sm sm:text-base text-center">Press SPACE, UP or TAP to start</p>
               <button 
                 onClick={resetGame}
-                className="group relative px-8 py-4 bg-stone-900 text-white rounded-full font-bold overflow-hidden transition-all hover:scale-105 active:scale-95"
+                className="group relative px-6 py-3 sm:px-8 sm:py-4 bg-stone-900 text-white rounded-full font-bold overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-lg"
               >
-                <span className="relative z-10 flex items-center gap-2">
-                  <Play className="w-5 h-5 fill-current" />
+                <span className="relative z-10 flex items-center gap-2 text-sm sm:text-base">
+                  <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
                   START GAME
                 </span>
                 <div className="absolute inset-0 bg-gradient-to-r from-stone-800 to-stone-900 opacity-0 group-hover:opacity-100 transition-opacity" />
