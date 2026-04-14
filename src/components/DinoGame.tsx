@@ -378,6 +378,12 @@ export const DinoGame: React.FC = () => {
     };
 
     const handleTouchStart = (e: TouchEvent) => {
+      // Resume audio context on first interaction
+      const ctx = getAudioContext();
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+
       // Prevent scrolling when touching the game area
       if (e.target instanceof HTMLCanvasElement) {
         e.preventDefault();
@@ -390,21 +396,33 @@ export const DinoGame: React.FC = () => {
         return;
       }
 
+      // On mobile, a quick touch is a jump, a long touch is a duck
+      // For simplicity, we'll make any touch start a jump if not jumping
+      // and a duck if we hold it (handled in touchEnd)
       if (!isJumping.current) {
         isJumping.current = true;
         dinoVelocityY.current = JUMP_FORCE;
         playSound('jump');
+      } else {
+        // If already jumping, allow ducking mid-air to fall faster
+        isDucking.current = true;
       }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      isDucking.current = false;
     };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('touchstart', handleTouchStart, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
     
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
       window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
   }, [gameState, resetGame]);
 
