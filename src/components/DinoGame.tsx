@@ -377,11 +377,34 @@ export const DinoGame: React.FC = () => {
       }
     };
 
+    const handleTouchStart = (e: TouchEvent) => {
+      // Prevent scrolling when touching the game area
+      if (e.target instanceof HTMLCanvasElement) {
+        e.preventDefault();
+      }
+
+      if (gameState !== 'PLAYING') {
+        if (gameState === 'START' || gameState === 'GAME_OVER') {
+          resetGame();
+        }
+        return;
+      }
+
+      if (!isJumping.current) {
+        isJumping.current = true;
+        dinoVelocityY.current = JUMP_FORCE;
+        playSound('jump');
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('touchstart', handleTouchStart, { passive: false });
+    
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('touchstart', handleTouchStart);
     };
   }, [gameState, resetGame]);
 
