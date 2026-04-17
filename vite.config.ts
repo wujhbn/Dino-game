@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
+        includeAssets: ['dino-favicon-64.png', 'dino-apple-180.png'],
         manifest: {
           name: 'Dino Runner: 3 Lives Edition',
           short_name: 'DinoRunner',
