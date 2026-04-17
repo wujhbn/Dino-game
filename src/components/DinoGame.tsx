@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { Heart, RotateCcw, Play, Trophy, Volume2, VolumeX } from 'lucide-react';
+import { Heart, RotateCcw, Play, Trophy, Volume2, VolumeX, Pause } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 // Constants
@@ -70,7 +70,74 @@ const playSound = (type: 'jump' | 'hit' | 'score') => {
   }
 };
 
-type GameState = 'START' | 'PLAYING' | 'GAME_OVER';
+// --- BGM SCHEDULER START ---
+let bgmSchedulerId: number | null = null;
+let nextBgmNoteTime = 0;
+let currentBgmNoteIndex = 0;
+let isBgmPlaying = false;
+
+const bgmNotes = [
+  392.00, 523.25, 659.25, 523.25,
+  392.00, 523.25, 659.25, 523.25,
+  349.23, 440.00, 523.25, 440.00,
+  349.23, 440.00, 523.25, 440.00,
+  329.63, 392.00, 523.25, 392.00,
+  329.63, 392.00, 523.25, 392.00,
+  293.66, 349.23, 440.00, 349.23,
+  293.66, 349.23, 440.00, 349.23,
+];
+
+const scheduleBgmNote = (freq: number, time: number) => {
+  if (!isSoundEnabledGlobal) return;
+  const ctx = getAudioContext();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  
+  osc.type = 'triangle';
+  osc.frequency.setValueAtTime(freq, time);
+  
+  gain.gain.setValueAtTime(0.015, time); // Low volume background music
+  gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+  
+  osc.start(time);
+  osc.stop(time + 0.15);
+};
+
+const bgmScheduler = () => {
+  if (!isBgmPlaying) return;
+  const ctx = getAudioContext();
+  
+  while (nextBgmNoteTime < ctx.currentTime + 0.1) {
+    scheduleBgmNote(bgmNotes[currentBgmNoteIndex], nextBgmNoteTime);
+    const secondsPerBeat = 60.0 / 250; 
+    nextBgmNoteTime += secondsPerBeat;
+    currentBgmNoteIndex = (currentBgmNoteIndex + 1) % bgmNotes.length;
+  }
+  bgmSchedulerId = window.setTimeout(bgmScheduler, 25);
+};
+
+const startBgm = () => {
+  if (isBgmPlaying) return;
+  isBgmPlaying = true;
+  const ctx = getAudioContext();
+  if (ctx.state === 'suspended') ctx.resume();
+  nextBgmNoteTime = ctx.currentTime + 0.05;
+  bgmScheduler();
+};
+
+const stopBgm = () => {
+  isBgmPlaying = false;
+  if (bgmSchedulerId !== null) {
+    clearTimeout(bgmSchedulerId);
+    bgmSchedulerId = null;
+  }
+};
+// --- BGM SCHEDULER END ---
+
+type GameState = 'START' | 'PLAYING' | 'GAME_OVER' | 'PAUSED';
 
 interface Obstacle {
   x: number;
@@ -94,6 +161,11 @@ export const DinoGame: React.FC = () => {
   useEffect(() => {
     isSoundEnabledGlobal = soundEnabled;
   }, [soundEnabled]);
+
+  // Clean up BGM on unmount
+  useEffect(() => {
+    return () => stopBgm();
+  }, []);
 
   // Game variables (refs to avoid re-renders during loop)
   const dinoY = useRef(GROUND_Y - DINO_HEIGHT);
@@ -121,6 +193,7 @@ export const DinoGame: React.FC = () => {
     frameCount.current = 0;
     lastObstacleTime.current = 0;
     if (invincibilityTimer.current) clearTimeout(invincibilityTimer.current);
+    startBgm();
   }, []);
 
   const handleHit = useCallback(() => {
@@ -132,6 +205,7 @@ export const DinoGame: React.FC = () => {
       const newLives = prev - 1;
       if (newLives <= 0) {
         setGameState('GAME_OVER');
+        stopBgm();
         return 0;
       }
       
@@ -352,10 +426,24 @@ export const DinoGame: React.FC = () => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'KeyP' || e.code === 'Escape') {
+        if (gameState === 'PLAYING') {
+          stopBgm();
+          setGameState('PAUSED');
+        } else if (gameState === 'PAUSED') {
+          startBgm();
+          setGameState('PLAYING');
+        }
+        return;
+      }
+
       if (gameState !== 'PLAYING') {
         if (e.code === 'Space' || e.code === 'ArrowUp') {
           if (gameState === 'START' || gameState === 'GAME_OVER') {
             resetGame();
+          } else if (gameState === 'PAUSED') {
+            startBgm();
+            setGameState('PLAYING');
           }
         }
         return;
@@ -392,6 +480,9 @@ export const DinoGame: React.FC = () => {
       if (gameState !== 'PLAYING') {
         if (gameState === 'START' || gameState === 'GAME_OVER') {
           resetGame();
+        } else if (gameState === 'PAUSED') {
+          startBgm();
+          setGameState('PLAYING');
         }
         return;
       }
@@ -441,7 +532,7 @@ export const DinoGame: React.FC = () => {
       <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-xl overflow-hidden border border-stone-200">
         
         {/* HUD */}
-        <div className="absolute top-0 left-0 right-0 p-6 flex justify-between items-start z-10 pointer-events-none">
+        <div className="absolute top-0 left-0 right-0 p-4 sm:p-6 flex justify-between items-start z-10 pointer-events-none">
           <div className="flex flex-col gap-1">
             <div className="flex gap-2">
               {[...Array(3)].map((_, i) => (
@@ -466,12 +557,31 @@ export const DinoGame: React.FC = () => {
 
           <div className="flex flex-col items-end gap-1">
             <div className="flex items-center gap-4 mb-1 pointer-events-auto">
-              <button 
-                onClick={() => setSoundEnabled(!soundEnabled)}
-                className="p-2 bg-stone-100 hover:bg-stone-200 rounded-full transition-colors text-stone-600"
-              >
-                {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => {
+                    if (gameState === 'PLAYING') {
+                      stopBgm();
+                      setGameState('PAUSED');
+                    } else if (gameState === 'PAUSED') {
+                      startBgm();
+                      setGameState('PLAYING');
+                    }
+                  }}
+                  disabled={gameState === 'START' || gameState === 'GAME_OVER'}
+                  className="p-2 bg-stone-100 hover:bg-stone-200 rounded-full transition-colors text-stone-600 disabled:opacity-50"
+                  title="Pause (P or Esc)"
+                >
+                  {gameState === 'PAUSED' ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                </button>
+                <button 
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  className="p-2 bg-stone-100 hover:bg-stone-200 rounded-full transition-colors text-stone-600"
+                  title="Toggle Sound"
+                >
+                  {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                </button>
+              </div>
               <div className="text-3xl font-black text-stone-800 tracking-tighter">
                 {score.toString().padStart(5, '0')}
               </div>
@@ -504,11 +614,35 @@ export const DinoGame: React.FC = () => {
               <p className="text-stone-500 mb-4 sm:mb-8 font-medium text-sm sm:text-base text-center">Press SPACE, UP or TAP to start</p>
               <button 
                 onClick={resetGame}
-                className="group relative px-6 py-3 sm:px-8 sm:py-4 bg-stone-900 text-white rounded-full font-bold overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-lg"
+                className="group relative px-4 py-3 sm:px-8 sm:py-4 bg-stone-900 text-white rounded-full font-bold overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-lg min-w-[160px]"
               >
-                <span className="relative z-10 flex items-center gap-2 text-sm sm:text-base">
+                <span className="relative z-10 flex items-center justify-center gap-2 text-sm sm:text-base whitespace-nowrap">
                   <Play className="w-4 h-4 sm:w-5 sm:h-5 fill-current" />
                   START GAME
+                </span>
+                <div className="absolute inset-0 bg-gradient-to-r from-stone-800 to-stone-900 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+            </motion.div>
+          )}
+
+          {gameState === 'PAUSED' && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-white/60 backdrop-blur-sm flex flex-col items-center justify-center z-20 p-4"
+            >
+              <h2 className="text-4xl font-black text-stone-900 tracking-tighter mb-4">PAUSED</h2>
+              <button 
+                onClick={() => {
+                  startBgm();
+                  setGameState('PLAYING');
+                }}
+                className="group relative px-6 py-3 bg-stone-900 text-white rounded-full font-bold overflow-hidden transition-all hover:scale-105 active:scale-95 shadow-lg"
+              >
+                <span className="relative z-10 flex items-center gap-2 text-sm">
+                  <Play className="w-4 h-4 fill-current" />
+                  RESUME
                 </span>
                 <div className="absolute inset-0 bg-gradient-to-r from-stone-800 to-stone-900 opacity-0 group-hover:opacity-100 transition-opacity" />
               </button>
@@ -546,7 +680,7 @@ export const DinoGame: React.FC = () => {
         </AnimatePresence>
 
         {/* Controls Help */}
-        <div className="p-4 bg-stone-100 border-t border-stone-200 flex justify-center gap-8 text-stone-500 text-sm font-medium">
+        <div className="p-4 bg-stone-100 border-t border-stone-200 flex flex-wrap justify-center gap-x-8 gap-y-4 text-stone-500 text-sm font-medium">
           <div className="flex items-center gap-2">
             <kbd className="px-2 py-1 bg-white border border-stone-300 rounded shadow-sm text-xs">SPACE</kbd>
             <span>Jump</span>
@@ -554,6 +688,10 @@ export const DinoGame: React.FC = () => {
           <div className="flex items-center gap-2">
             <kbd className="px-2 py-1 bg-white border border-stone-300 rounded shadow-sm text-xs">↓</kbd>
             <span>Duck</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <kbd className="px-2 py-1 bg-white border border-stone-300 rounded shadow-sm text-xs">P</kbd>
+            <span>Pause</span>
           </div>
         </div>
       </div>
