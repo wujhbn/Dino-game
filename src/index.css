@@ -1,1 +1,23 @@
 @import "tailwindcss";
+
+@layer base {
+  html, body {
+    @apply antialiased overflow-hidden;
+    /* Prevent default browser UI interference on mobile */
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    /* Disable tap highlight color on mobile */
+    -webkit-tap-highlight-color: transparent;
+    /* Prevent long-press selection */
+    touch-action: pan-x pan-y;
+  }
+
+  /* Input fields should still allow selection if needed, but not in this game */
+  input, textarea {
+    user-select: auto;
+  }
+}

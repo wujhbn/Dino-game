@@ -508,17 +508,21 @@ export const DinoGame: React.FC = () => {
       isDucking.current = false;
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('keyup', handleKeyUp);
-    window.addEventListener('touchstart', handleTouchStart, { passive: false });
-    window.addEventListener('touchend', handleTouchEnd);
-    
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('keyup', handleKeyUp);
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
+      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('keyup', handleKeyUp);
+      
+      // Use { passive: false } to allow preventDefault()
+      window.addEventListener('touchstart', handleTouchStart, { passive: false });
+      window.addEventListener('touchend', handleTouchEnd, { passive: false });
+      window.addEventListener('contextmenu', (e) => e.preventDefault());
+      
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('keyup', handleKeyUp);
+        window.removeEventListener('touchstart', handleTouchStart);
+        window.removeEventListener('touchend', handleTouchEnd);
+        window.removeEventListener('contextmenu', (e) => e.preventDefault());
+      };
   }, [gameState, resetGame]);
 
   useEffect(() => {
@@ -528,8 +532,8 @@ export const DinoGame: React.FC = () => {
   }, [score, highScore]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-stone-50 p-4 font-sans">
-      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-xl overflow-hidden border border-stone-200">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-stone-50 p-4 font-sans select-none touch-none overflow-hidden overscroll-none" onContextMenu={(e) => e.preventDefault()}>
+      <div className="relative w-full max-w-3xl bg-white rounded-2xl shadow-xl overflow-hidden border border-stone-200 touch-none">
         
         {/* HUD */}
         <div className="absolute top-0 left-0 right-0 p-4 sm:p-6 flex justify-between items-start z-10 pointer-events-none">
@@ -598,7 +602,7 @@ export const DinoGame: React.FC = () => {
           ref={canvasRef}
           width={CANVAS_WIDTH}
           height={CANVAS_HEIGHT}
-          className="w-full h-auto block bg-stone-50/50"
+          className="w-full h-auto block bg-stone-50/50 touch-none"
         />
 
         {/* Overlays */}
